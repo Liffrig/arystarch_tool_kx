@@ -1,0 +1,10 @@
+# No external dependencies required
+# This project uses only Python standard library:
+# - tkinter (GUI)
+# - json (data parsing)
+# - math (geometry calculations)
+# - concurrent.futures (async pathfinding)
+# - dataclasses (data structures)
+# - heapq (Dijkstra's algorithm)
+
+# Python 3.10+ required for type hints (list[Point], tuple[float, float], etc.)
