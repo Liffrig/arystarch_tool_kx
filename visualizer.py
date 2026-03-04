@@ -327,7 +327,7 @@ class CoordinateVisualizer:
         else:
             self.root.after(10, lambda: self.check_path_result(future))
 
-    def calculate_all_paths(self) -> dict[tuple[int, int], tuple[Optional[list[Point]], float]]:
+    def calculate_all_paths(self, show_progress: bool = False) -> dict[tuple[int, int], tuple[Optional[list[Point]], float]]:
         """Calculate paths for all point pairs (batch mode)."""
         futures = {}
 
@@ -339,14 +339,19 @@ class CoordinateVisualizer:
                     find_shortest_path, p1, p2, self.obstacles, self.boundary
                 )
 
+        total = len(futures)
         results = {}
-        for key, future in futures.items():
+        for idx, (key, future) in enumerate(futures.items()):
             path = future.result()
             if path:
                 dist = sum(path[k].distance_to(path[k + 1]) for k in range(len(path) - 1))
             else:
                 dist = -1.0
             results[key] = (path, dist)
+
+            if show_progress:
+                self.status.config(text=f"Calculating paths: {idx + 1}/{total}")
+                self.root.update()
 
         return results
 
@@ -365,11 +370,11 @@ class CoordinateVisualizer:
 
         filepath = reports_dir / f"paths_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
 
-        self.status.config(text="Calculating all paths...")
+        self.status.config(text="Calculating paths: 0/...")
         self.root.update()
 
         try:
-            results = self.calculate_all_paths()
+            results = self.calculate_all_paths(show_progress=True)
 
             with open(filepath, 'w') as f:
                 for (i, j), (path, dist) in sorted(results.items()):
