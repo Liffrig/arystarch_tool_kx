@@ -8,3 +8,8 @@
 # - heapq (Dijkstra's algorithm)
 
 # Python 3.10+ required for type hints (list[Point], tuple[float, float], etc.)
+--index-url https://artifactrepo.jnj.com/artifactory/api/pypi/jnj-python/simple/
+
+pandas
+duckdb
+openpyxl
