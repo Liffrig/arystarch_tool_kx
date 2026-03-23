@@ -1,6 +1,7 @@
 
 import json
 import math
+import pickle
 import sys
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
@@ -327,7 +328,7 @@ class CoordinateVisualizer:
         else:
             self.root.after(10, lambda: self.check_path_result(future))
 
-    def calculate_all_paths(self, show_progress: bool = False) -> dict[tuple[int, int], tuple[Optional[list[Point]], float]]:
+    def calculate_all_paths(self, total: int, show_progress: bool = False) -> dict[tuple[int, int], tuple[Optional[list[Point]], float]]:
         """Calculate paths for all point pairs (batch mode)."""
         futures = {}
 
@@ -339,7 +340,6 @@ class CoordinateVisualizer:
                     find_shortest_path, p1, p2, self.obstacles, self.boundary
                 )
 
-        total = len(futures)
         results = {}
         for idx, (key, future) in enumerate(futures.items()):
             path = future.result()
@@ -356,7 +356,7 @@ class CoordinateVisualizer:
         return results
 
     def export_all_paths(self):
-        """Export all point-to-point path calculations to a text file."""
+        """Export all point-to-point path calculations to .txt and .pkl files."""
         if not self.points:
             messagebox.showwarning("Warning", "No points loaded. Load a JSON file first.")
             return
@@ -365,18 +365,23 @@ class CoordinateVisualizer:
             messagebox.showwarning("Warning", "Need at least 2 points to calculate paths.")
             return
 
+        n = len(self.points)
+        total = n * (n - 1) // 2
+
         reports_dir = Path(__file__).parent / "reports"
         reports_dir.mkdir(exist_ok=True)
 
-        filepath = reports_dir / f"paths_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        txt_path = reports_dir / f"paths_{timestamp}.txt"
+        pkl_path = reports_dir / f"paths_{timestamp}.pkl"
 
-        self.status.config(text="Calculating paths: 0/...")
+        self.status.config(text=f"Calculating paths: 0/{total}")
         self.root.update()
 
         try:
-            results = self.calculate_all_paths(show_progress=True)
+            results = self.calculate_all_paths(total, show_progress=True)
 
-            with open(filepath, 'w') as f:
+            with open(txt_path, 'w') as f:
                 for (i, j), (path, dist) in sorted(results.items()):
                     p1 = self.points[i]
                     p2 = self.points[j]
@@ -388,8 +393,18 @@ class CoordinateVisualizer:
                     else:
                         f.write(f"{label1} -> {label2}: NO PATH\n")
 
-            self.status.config(text=f"Exported to: {filepath}")
-            messagebox.showinfo("Success", f"Paths exported to:\n{filepath}")
+            pickle_data = {
+                (self.points[i].label or f"Point {i}", self.points[j].label or f"Point {j}"): {
+                    "distance": dist,
+                    "waypoints": [(p.x, p.y) for p in path] if path else None,
+                }
+                for (i, j), (path, dist) in results.items()
+            }
+            with open(pkl_path, 'wb') as f:
+                pickle.dump(pickle_data, f)
+
+            self.status.config(text=f"Exported to: {txt_path.name}, {pkl_path.name}")
+            messagebox.showinfo("Success", f"Paths exported to:\n{txt_path}\n{pkl_path}")
 
         except Exception as e:
             self.status.config(text=f"Export failed: {e}")

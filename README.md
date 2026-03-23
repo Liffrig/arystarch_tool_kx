@@ -21,7 +21,9 @@ A Python GUI tool for visualizing coordinate systems with obstacles and calculat
 - Python 3.10+
 - tkinter (usually included with Python)
 
-No external dependencies required - uses only Python standard library.
+Only for data additional operations - json creation:
+- pandas
+- duckdb
 
 ## Installation
 
@@ -77,12 +79,14 @@ python visualizer.py example_data.json
 
 ```
 arystarch_tool_kx/
-├── visualizer.py       # Main GUI application
+├── visualizer.py         # Main GUI application
+├── data_operations.ipynb # Experiments and data export
 ├── src/
 │   ├── __init__.py
 │   ├── point.py        # Point dataclass
 │   ├── rectangle.py    # Rectangle dataclass
 │   ├── geo_helpers.py  # Geometry functions
+|   ├── data_export.py  # Exporting coordinats from excel to json
 │   └── pathfinding.py  # Pathfinding algorithms
 ├── example_data.json   # Sample data
 ├── requirements.txt
