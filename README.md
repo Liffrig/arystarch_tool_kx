@@ -23,7 +23,7 @@ A Python GUI tool for visualizing coordinate systems with obstacles and calculat
 
 Only for data additional operations - json creation:
 - pandas
-- duckdb
+- openpyxl
 
 ## Installation
 

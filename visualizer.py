@@ -1,62 +1,27 @@
-
 import json
 import math
-import pickle
 import sys
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
-from datetime import datetime
 from pathlib import Path
 
 from src.point import Point
 from src.rectangle import Rectangle
 from src.pathfinding import find_shortest_path
+from config import CANVAS_WIDTH, CANVAS_HEIGHT, PADDING, POINT_RADIUS, WAYPOINT_RADIUS, POINT_COLOUR, NICE_COLOURS
+from exporter import calculate_all_paths, export_paths
 
-
-# dzięki AI :)
-NICE_COLOURS = [
-    "#1f77b4",  # blue
-    "#2ca02c",  # green
-    "#9467bd",  # purple
-    "#ff7f0e",  # orange
-    "#8c564b",  # brown
-    "#17becf",  # teal
-    "#e377c2",  # magenta
-    "#bcbd22",  # olive
-    "#d62728",  # red
-    "#7f7f7f",  # gray
-    "#aec7e8",  # light blue
-    "#98df8a",  # light green
-    "#c5b0d5",  # light purple
-    "#ffbb78",  # light orange
-    "#c49c94",  # light brown
-    "#9edae5",  # light teal
-    "#f7b6d2",  # light magenta
-    "#dbdb8d",  # light olive
-    "#ff9896",  # light red
-    "#c7c7c7",  # light gray
-    "#393b79",  # dark blue
-    "#637939",  # dark green
-    "#8c6d31",  # dark gold
-    "#843c39",  # dark red
-    "#7b4173",  # dark purple
-    "#5254a3",  # indigo
-    "#6b6ecf",  # periwinkle
-    "#9c9ede",  # lavender
-    "#ce6dbd",  # orchid
-    "#de9ed6",  # pink
-]
 
 class CoordinateVisualizer:
     def __init__(self, root):
         self.root = root
         self.root.title("Coordinate Visualizer")
 
-        self.canvas_width = 800
-        self.canvas_height = 700
-        self.padding = 50
+        self.canvas_width = CANVAS_WIDTH
+        self.canvas_height = CANVAS_HEIGHT
+        self.padding = PADDING
 
         # Future batch execution
         self.executor = ThreadPoolExecutor(max_workers=4)
@@ -175,7 +140,7 @@ class CoordinateVisualizer:
             else:
                 self.to_dropdown.current(0)
 
-        # resize view to biundries
+        # resize view to boundaries
         margin = 0.05 * max(
             self.boundary.max_x - self.boundary.min_x,
             self.boundary.max_y - self.boundary.min_y
@@ -224,7 +189,8 @@ class CoordinateVisualizer:
         if show_corners:
             for corner in rect.corners:
                 x, y = self.transform_coords(corner.x, corner.y)
-                self.canvas.create_oval(x - 4, y - 4, x + 4, y + 4, fill=color, outline="black")
+                r = WAYPOINT_RADIUS
+                self.canvas.create_oval(x - r, y - r, x + r, y + r, fill=color, outline="black")
                 if corner.label:
                     self.canvas.create_text(x, y - 12, text=corner.label, fill=color, font=("Arial", 9, "bold"))
 
@@ -246,32 +212,25 @@ class CoordinateVisualizer:
         """Draw light grid lines."""
         x_range = self.view_max_x - self.view_min_x
         y_range = self.view_max_y - self.view_min_y
-        x_step = x_range / 10
-        y_step = y_range / 10
 
-        x = self.view_min_x
-        while x <= self.view_max_x:
+        for i in range(11):
+            x = self.view_min_x + i * x_range / 10
             x1, y1 = self.transform_coords(x, self.view_min_y)
             x2, y2 = self.transform_coords(x, self.view_max_y)
             self.canvas.create_line(x1, y1, x2, y2, fill="#e0e0e0")
-            x += x_step
 
-        y = self.view_min_y
-        while y <= self.view_max_y:
+        for i in range(11):
+            y = self.view_min_y + i * y_range / 10
             x1, y1 = self.transform_coords(self.view_min_x, y)
             x2, y2 = self.transform_coords(self.view_max_x, y)
             self.canvas.create_line(x1, y1, x2, y2, fill="#e0e0e0")
-            y += y_step
 
     def draw_points(self):
-        """Draw all points with location-based coloring."""
+        """Draw all points."""
         for point in self.points:
             x, y = self.transform_coords(point.x, point.y)
-
-            fill_color = "orange"
-
-            self.canvas.create_oval(x - 6, y - 6, x + 6, y + 6, fill=fill_color, outline="darkred")
-
+            r = POINT_RADIUS
+            self.canvas.create_oval(x - r, y - r, x + r, y + r, fill=POINT_COLOUR, outline="darkred")
             label = point.label or f"({point.x}, {point.y})"
             self.canvas.create_text(x + 10, y - 10, text=label, fill="black", font=("Arial", 10, "bold"), anchor="w")
 
@@ -290,7 +249,8 @@ class CoordinateVisualizer:
         for i, point in enumerate(path):
             if 0 < i < len(path) - 1:
                 x, y = self.transform_coords(point.x, point.y)
-                self.canvas.create_oval(x - 4, y - 4, x + 4, y + 4, fill="purple", outline="purple")
+                r = WAYPOINT_RADIUS
+                self.canvas.create_oval(x - r, y - r, x + r, y + r, fill="purple", outline="purple")
 
     def on_path_change(self, _event):
         """Handle dropdown selection change."""
@@ -328,33 +288,6 @@ class CoordinateVisualizer:
         else:
             self.root.after(10, lambda: self.check_path_result(future))
 
-    def calculate_all_paths(self, total: int, show_progress: bool = False) -> dict[tuple[int, int], tuple[Optional[list[Point]], float]]:
-        """Calculate paths for all point pairs (batch mode)."""
-        futures = {}
-
-        for i, p1 in enumerate(self.points):
-            for j, p2 in enumerate(self.points):
-                if i >= j:
-                    continue
-                futures[(i, j)] = self.executor.submit(
-                    find_shortest_path, p1, p2, self.obstacles, self.boundary
-                )
-
-        results = {}
-        for idx, (key, future) in enumerate(futures.items()):
-            path = future.result()
-            if path:
-                dist = sum(path[k].distance_to(path[k + 1]) for k in range(len(path) - 1))
-            else:
-                dist = -1.0
-            results[key] = (path, dist)
-
-            if show_progress:
-                self.status.config(text=f"Calculating paths: {idx + 1}/{total}")
-                self.root.update()
-
-        return results
-
     def export_all_paths(self):
         """Export all point-to-point path calculations to .txt and .pkl files."""
         if not self.points:
@@ -365,47 +298,20 @@ class CoordinateVisualizer:
             messagebox.showwarning("Warning", "Need at least 2 points to calculate paths.")
             return
 
-        n = len(self.points)
-        total = n * (n - 1) // 2
+        def on_progress(done, total):
+            self.status.config(text=f"Calculating paths: {done}/{total}")
+            self.root.update()
 
-        reports_dir = Path(__file__).parent / "reports"
-        reports_dir.mkdir(exist_ok=True)
-
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        txt_path = reports_dir / f"paths_{timestamp}.txt"
-        pkl_path = reports_dir / f"paths_{timestamp}.pkl"
-
-        self.status.config(text=f"Calculating paths: 0/{total}")
+        self.status.config(text="Calculating paths: 0/...")
         self.root.update()
 
         try:
-            results = self.calculate_all_paths(total, show_progress=True)
-
-            with open(txt_path, 'w') as f:
-                for (i, j), (path, dist) in sorted(results.items()):
-                    p1 = self.points[i]
-                    p2 = self.points[j]
-                    label1 = p1.label or f"Point {i}"
-                    label2 = p2.label or f"Point {j}"
-
-                    if path and dist >= 0:
-                        f.write(f"{label1} -> {label2}: {dist:.2f}\n")
-                    else:
-                        f.write(f"{label1} -> {label2}: NO PATH\n")
-
-            pickle_data = {
-                (self.points[i].label or f"Point {i}", self.points[j].label or f"Point {j}"): {
-                    "distance": dist,
-                    "waypoints": [(p.x, p.y) for p in path] if path else None,
-                }
-                for (i, j), (path, dist) in results.items()
-            }
-            with open(pkl_path, 'wb') as f:
-                pickle.dump(pickle_data, f)
-
+            results = calculate_all_paths(
+                self.points, self.obstacles, self.boundary, self.executor, on_progress
+            )
+            txt_path, pkl_path = export_paths(results, self.points, Path(__file__).parent / "reports")
             self.status.config(text=f"Exported to: {txt_path.name}, {pkl_path.name}")
             messagebox.showinfo("Success", f"Paths exported to:\n{txt_path}\n{pkl_path}")
-
         except Exception as e:
             self.status.config(text=f"Export failed: {e}")
             messagebox.showerror("Error", f"Failed to export: {e}")
