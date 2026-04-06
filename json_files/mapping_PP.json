@@ -48,22 +48,22 @@
     {
       "x": 12.18,
       "y": 16.63,
-      "label": "CD1WP_CD1"
+      "label": "WP_CD1"
     },
     {
       "x": 14.83,
       "y": 16.44,
-      "label": "CD2WP_CD2"
+      "label": "WP_CD2"
     },
     {
       "x": 17.3,
       "y": 34.53,
-      "label": "DXWP_DX"
+      "label": "WP_DX"
     },
     {
       "x": 25.77,
       "y": 34.53,
-      "label": "MWP_M"
+      "label": "WP_M"
     }
   ]
 }
